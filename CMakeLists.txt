@@ -24,6 +24,9 @@ endif()
 include_directories( ${SDL_INCLUDES_DIR} )
 include_directories( ${SDL_TTF_INCLUDES_DIR} )
 
+if( WIN32 )
+	set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mwindows" ) # force gui, not console application
+endif()
 
 add_executable( HarpSimulator main.cpp )
 
