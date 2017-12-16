@@ -1,8 +1,12 @@
+#include <algorithm>
 #include <cstdlib>
 #include <iostream>
+#include <cmath>
 #include <vector>
 
 #include <SDL.h>
+
+#include "spectrum.h"
 
 namespace
 {
@@ -14,6 +18,7 @@ const SDL_AudioDeviceID g_first_valid_device_id= 2u;
 SDL_AudioDeviceID device_id_= 0u;
 unsigned int frequency_; // samples per second
 std::vector<int> mix_buffer_;
+const unsigned int c_sample_rate= 44100;
 
 // Window
 SDL_Window* window_= nullptr;
@@ -49,6 +54,10 @@ bool note_state_table[c_harp_apertures_count][c_harp_aprture_modes_count]=
 	{ false, false }
 };
 
+typedef std::vector<int16_t> NoteData;
+NoteData notes_data_[c_harp_apertures_count][c_harp_aprture_modes_count];
+uint64_t sample_pos_= 0u;
+
 } // namespace
 
 static int NearestPowerOfTwoFloor( int x )
@@ -58,17 +67,79 @@ static int NearestPowerOfTwoFloor( int x )
 	return r;
 }
 
-void AudioCallback( void* userdata, Uint8* stream, int len_bytes )
+void GenNote( unsigned int note_number, NoteData& out_note_data )
 {
+	const float amplitude_multipler= 1.0f /
+		std::accumulate(
+			notes_specturm_table[note_number],
+			notes_specturm_table[note_number] + notes_spectrum_size_table[note_number],
+			0.0f );
+		//ArraySum( notes_specturm_table[note_number], notes_spectrum_size_table[note_number] );
+
+	const float two_pi= 3.1415926535f * 2.0f;
+	const float c_sample_length= 0.33f;
+
+	float freq= float( notes_freq_base_table[ note_number ] );
+
+	float sample_length= std::ceil( freq * c_sample_length ) / freq;
+
+	unsigned int sample_count= int( std::round( float(c_sample_rate) * sample_length ) );
+
+	out_note_data.resize( sample_count );
+
+	float mult= two_pi * freq / float(c_sample_rate);
+	for( unsigned int i= 0; i< sample_count; i++ )
+	{
+		float val= 0.0f;
+		for( unsigned int j= 0; j< notes_spectrum_size_table[note_number]; j++ )
+			val+= notes_specturm_table[note_number][j] * std::sin( float((j+1)*i) * mult );
+		out_note_data[i]= int16_t( 32767.0f * amplitude_multipler * val );
+	}
+}
+
+void AudioCallback( void* /*userdata*/, Uint8* stream, int len_bytes )
+{
+	int16_t* const out_data= reinterpret_cast<int16_t*>(stream);
+	const unsigned int sample_count= len_bytes / sizeof(int16_t);
+
+	for( int i= 0; i < sample_count; ++i )
+		mix_buffer_[i]= 0;
+
+	for( int y= 0; y < c_harp_aprture_modes_count; ++y )
+	for( int x= 0; x < c_harp_apertures_count; ++x )
+	{
+		if( !note_state_table[x][y] )
+			continue;
+
+		const NoteData& data= notes_data_[x][y];
+		unsigned int samples_added= 0u;
+		while( samples_added < sample_count )
+		{
+			const unsigned int pos= static_cast<unsigned int>( ( sample_pos_ + samples_added ) % static_cast<uint64_t>(data.size()) );
+			const unsigned int samples_to_write= std::min( static_cast<unsigned int>( data.size() - pos ), sample_count - samples_added );
+			for( unsigned int i= 0u; i < samples_to_write; ++i )
+				mix_buffer_[ samples_added + i ]+= data[ pos + i ];
+			samples_added+= samples_to_write;
+		}
+	}
+
+	sample_pos_+= sample_count;
+
+	for( int i= 0; i < sample_count; ++i )
+		out_data[i]= std::max( -32767, std::min( mix_buffer_[i], 32767 ) );
 }
 
 void InitAudio()
 {
+	for( int y= 0; y < c_harp_aprture_modes_count; ++y )
+	for( int x= 0; x < c_harp_apertures_count; ++x )
+		GenNote( y + x * c_harp_aprture_modes_count, notes_data_[x][y] );
+
 	SDL_AudioSpec requested_format;
 	SDL_AudioSpec obtained_format;
 
 	requested_format.channels= 1u;
-	requested_format.freq= 22050;
+	requested_format.freq= c_sample_rate;
 	requested_format.format= AUDIO_S16;
 	requested_format.callback= AudioCallback;
 	requested_format.userdata= nullptr;
@@ -106,7 +177,7 @@ void InitAudio()
 
 	frequency_= obtained_format.freq;
 
-	mix_buffer_.resize( obtained_format.samples  );
+	mix_buffer_.resize( obtained_format.samples );
 
 	// Run
 	SDL_PauseAudioDevice( device_id_ , 0 );
