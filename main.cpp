@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <atomic>
 #include <cstdlib>
 #include <iostream>
 #include <cmath>
@@ -57,6 +58,7 @@ bool note_state_table[c_harp_apertures_count][c_harp_aprture_modes_count]=
 typedef std::vector<int16_t> NoteData;
 NoteData notes_data_[c_harp_apertures_count][c_harp_aprture_modes_count];
 uint64_t sample_pos_= 0u;
+std::atomic<float> volume_{ 1.0f };
 
 } // namespace
 
@@ -103,6 +105,9 @@ void AudioCallback( void* /*userdata*/, Uint8* stream, int len_bytes )
 	for( int i= 0; i < sample_count; ++i )
 		mix_buffer_[i]= 0;
 
+	const int fixed_bits= 12;
+	const int volume_f= static_cast<int>( std::round( volume_ * float( 1 << fixed_bits ) ) );
+
 	// Mix notes into buffer.
 	for( int y= 0; y < c_harp_aprture_modes_count; ++y )
 	for( int x= 0; x < c_harp_apertures_count; ++x )
@@ -117,7 +122,7 @@ void AudioCallback( void* /*userdata*/, Uint8* stream, int len_bytes )
 			const unsigned int pos= static_cast<unsigned int>( ( sample_pos_ + samples_added ) % static_cast<uint64_t>(data.size()) );
 			const unsigned int samples_to_write= std::min( static_cast<unsigned int>( data.size() - pos ), sample_count - samples_added );
 			for( unsigned int i= 0u; i < samples_to_write; ++i )
-				mix_buffer_[ samples_added + i ]+= data[ pos + i ];
+				mix_buffer_[ samples_added + i ]+= ( data[ pos + i ] * volume_f ) >> fixed_bits;
 			samples_added+= samples_to_write;
 		}
 	}
@@ -194,7 +199,7 @@ void DeInitAudio()
 void InitWindow()
 {
 	window_= SDL_CreateWindow(
-		"Harp Simulator",
+		"Harp simulator",
 		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
 		c_window_width, c_window_height,
 		0 );
@@ -287,6 +292,28 @@ void MainLoop()
 					return;
 				break;
 
+
+			case SDL_KEYUP:
+			case SDL_KEYDOWN:
+				if( event.key.keysym.sym == SDLK_MINUS ||
+					event.key.keysym.sym == SDLK_EQUALS )
+				{
+					float volume= volume_.load();
+					volume+= ( event.key.keysym.sym == SDLK_PLUS ? 1.0f : -1.0f ) / 16.0f;
+					volume= std::max( 0.0f, std::min( volume, 1.0f ) );
+					volume_.store( volume );
+				}
+				break;
+
+			case SDL_MOUSEWHEEL:
+			{
+				float volume= volume_.load();
+				volume+= ( event.wheel.y > 0 ? 1.0f : -1.0f ) / 32.0f;
+				volume= std::max( 0.0f, std::min( volume, 1.0f ) );
+				volume_.store( volume );
+			}
+				break;
+
 			case SDL_QUIT:
 				return;
 			};
@@ -325,6 +352,11 @@ void MainLoop()
 			}
 		}
 		SDL_UnlockAudioDevice( device_id_ );
+
+		// Write volume to window caption
+		char window_caption[128];
+		std::snprintf( window_caption, sizeof(window_caption), "harp simulator %2.1f%%", 100.0f * volume_.load() );
+		SDL_SetWindowTitle( window_, window_caption );
 	}
 }
 
