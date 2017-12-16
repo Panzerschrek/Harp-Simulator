@@ -1,0 +1,16 @@
+# Objects and binaries.
+*.obj
+*.o
+*.exe
+*.dll
+*.so
+
+# Code::Blocks shit.
+*.layout
+
+# Build directories
+build*/
+
+# QtCreator settings
+*.pro.user
+*.user
