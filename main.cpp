@@ -74,15 +74,12 @@ void GenNote( unsigned int note_number, NoteData& out_note_data )
 			notes_specturm_table[note_number],
 			notes_specturm_table[note_number] + notes_spectrum_size_table[note_number],
 			0.0f );
-		//ArraySum( notes_specturm_table[note_number], notes_spectrum_size_table[note_number] );
 
 	const float two_pi= 3.1415926535f * 2.0f;
 	const float c_sample_length= 0.33f;
 
 	float freq= float( notes_freq_base_table[ note_number ] );
-
 	float sample_length= std::ceil( freq * c_sample_length ) / freq;
-
 	unsigned int sample_count= int( std::round( float(c_sample_rate) * sample_length ) );
 
 	out_note_data.resize( sample_count );
@@ -102,9 +99,11 @@ void AudioCallback( void* /*userdata*/, Uint8* stream, int len_bytes )
 	int16_t* const out_data= reinterpret_cast<int16_t*>(stream);
 	const unsigned int sample_count= len_bytes / sizeof(int16_t);
 
+	// Zero mix buffer.
 	for( int i= 0; i < sample_count; ++i )
 		mix_buffer_[i]= 0;
 
+	// Mix notes into buffer.
 	for( int y= 0; y < c_harp_aprture_modes_count; ++y )
 	for( int x= 0; x < c_harp_apertures_count; ++x )
 	{
@@ -125,6 +124,7 @@ void AudioCallback( void* /*userdata*/, Uint8* stream, int len_bytes )
 
 	sample_pos_+= sample_count;
 
+	// Blit mix buffer into dst with saturation.
 	for( int i= 0; i < sample_count; ++i )
 		out_data[i]= std::max( -32767, std::min( mix_buffer_[i], 32767 ) );
 }
@@ -263,8 +263,22 @@ void MainLoop()
 {
 	while(true)
 	{
+		// Draw
+
+		if( SDL_MUSTLOCK( surface_ ) )
+			SDL_LockSurface( surface_ );
+
+		Draw();
+
+		if( SDL_MUSTLOCK( surface_ ) )
+			SDL_UnlockSurface( surface_ );
+
+		SDL_UpdateWindowSurface( window_ );
+
+		// Process events.
 		SDL_Event event;
-		while( SDL_PollEvent(&event) )
+		SDL_WaitEvent( &event ); // Wait for events. If there are no events - we can nothing to do.
+		do
 		{
 			switch(event.type)
 			{
@@ -276,8 +290,10 @@ void MainLoop()
 			case SDL_QUIT:
 				return;
 			};
-		};
+		} while( SDL_PollEvent(&event) );
 
+		// Update state of keys.
+		SDL_LockAudioDevice( device_id_ ); // Pause audio callback in separate thread, because we update global state here.
 		{
 			int key_count;
 			const Uint8* const keyboard_state= SDL_GetKeyboardState( &key_count );
@@ -308,16 +324,7 @@ void MainLoop()
 						note_state_table[j][1]= keyboard_state[i] != 0;
 			}
 		}
-
-		if( SDL_MUSTLOCK( surface_ ) )
-			SDL_LockSurface( surface_ );
-
-		Draw();
-
-		if( SDL_MUSTLOCK( surface_ ) )
-			SDL_UnlockSurface( surface_ );
-
-		SDL_UpdateWindowSurface( window_ );
+		SDL_UnlockAudioDevice( device_id_ );
 	}
 }
 
@@ -327,7 +334,6 @@ extern "C" int main( int argc, char *argv[] )
 
 	InitWindow();
 	InitAudio();
-
 
 	MainLoop();
 
