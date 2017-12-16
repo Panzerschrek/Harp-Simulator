@@ -6,6 +6,7 @@
 #include <vector>
 
 #include <SDL.h>
+#include <SDL_ttf.h>
 
 #include "spectrum.h"
 
@@ -39,6 +40,38 @@ const unsigned char c_background_color[]= { 32, 32, 32 };
 const unsigned char c_inactive_aperture_color[]= { 200, 190, 170 };
 const unsigned char c_active_aperture_color[]= { 150, 148, 130 };
 const unsigned char c_note_name_color[]= { 84, 80, 76 };
+
+const char* const c_note_name_table[c_harp_apertures_count][c_harp_aprture_modes_count]=
+{
+	{ "1C", "1D" },
+	{ "1E", "1G" },
+	{ "1G", "1B" },
+	{ "2C", "2D" },
+	{ "2E", "2F" },
+	{ "2G", "2A" },
+	{ "3C", "2B" },
+	{ "3E", "3D" },
+	{ "3G", "3F" },
+	{ "4C", "3A" }
+};
+
+const char* const c_note_key_name_table[c_harp_apertures_count][c_harp_aprture_modes_count]=
+{
+	{ "1", "Q" },
+	{ "2", "W" },
+	{ "3", "E" },
+	{ "4", "R" },
+	{ "5", "T" },
+	{ "6", "Y" },
+	{ "7", "U" },
+	{ "8", "I" },
+	{ "9", "O" },
+	{"10", "P" },
+};
+
+// Font
+TTF_Font* font_= nullptr;
+SDL_Surface* notes_descriptions_glyphs_[c_harp_apertures_count][c_harp_aprture_modes_count][2u];
 
 // Notes
 bool note_state_table[c_harp_apertures_count][c_harp_aprture_modes_count]=
@@ -224,23 +257,36 @@ void DeInitWindow()
 	SDL_DestroyWindow( window_ );
 }
 
+void InitFont()
+{
+	TTF_Init();
+
+	font_= TTF_OpenFont( "arial.ttf", 20 );
+
+	for( int y= 0; y < c_harp_aprture_modes_count; ++y )
+	for( int x= 0; x < c_harp_apertures_count; ++x )
+	{
+		SDL_Color color{ c_note_name_color[0], c_note_name_color[1], c_note_name_color[2] };
+		notes_descriptions_glyphs_[x][y][0]= TTF_RenderText_Solid( font_, c_note_name_table[x][y], color );
+		notes_descriptions_glyphs_[x][y][1]= TTF_RenderText_Solid( font_, c_note_key_name_table[x][y], color );
+	}
+}
+
+void DeInitFont()
+{
+	for( int y= 0; y < c_harp_aprture_modes_count; ++y )
+	for( int x= 0; x < c_harp_apertures_count; ++x )
+	{
+		//TODO - know, how to delete surface
+	}
+
+	TTF_Quit();
+}
+
 void Draw()
 {
-	const auto fill_rect=
-	[]( const int x, const int y, const int width, const int height, const unsigned char* const color )
-	{
-		int pitch= surface_->pitch / 4;
-		unsigned char* const dst= static_cast<unsigned char*>(surface_->pixels) + ( x + y * pitch ) * 4;
-		for( int dy= 0; dy < height; ++dy )
-		for( int dx= 0; dx < width ; ++dx )
-		{
-			for( int j= 0; j < 3; ++j )
-				dst[ ( dx + dy * pitch ) * 4 + j ]= color[j];
-			dst[ ( dx + dy * pitch ) * 4 + 3 ]= 128;
-		}
-	};
-
-	fill_rect( 0, 0, surface_->w, surface_->h, c_background_color );
+	const SDL_Rect bg_rect{ 0, 0, surface_->w, surface_->h };
+	SDL_FillRect( surface_, &bg_rect, SDL_MapRGB( surface_->format, c_background_color[0], c_background_color[1], c_background_color[2] ) );
 
 	const unsigned int c_edge_border_size= 8;
 	const unsigned int c_inner_border_size= 2;
@@ -260,7 +306,23 @@ void Draw()
 	{
 		unsigned int r_x= c_edge_border_size + (plate_width + c_inner_border_size * 2) * x;
 		unsigned int r_y= c_edge_border_size + (plate_height + c_inner_border_size * 2) * y;
-		fill_rect( r_x, r_y, plate_width, plate_height, note_state_table[x][y] ? c_active_aperture_color : c_inactive_aperture_color );
+
+		const unsigned char* const color= note_state_table[x][y] ? c_active_aperture_color : c_inactive_aperture_color;
+		SDL_Rect rect{ int(r_x), int(r_y), int(plate_width), int(plate_height) };
+		SDL_FillRect( surface_, &rect, SDL_MapRGB( surface_->format, color[0], color[1], color[2] ) );
+
+		{
+			SDL_Surface* const s= notes_descriptions_glyphs_[x][y][0];
+			SDL_Rect src_rect{ 0, 0, s->w, s->h };
+			SDL_Rect dst_rect{ int( r_x + ( plate_width - s->w ) / 2 ), int(r_y), s->w, s->h };
+			SDL_UpperBlit( s, &src_rect, surface_, &dst_rect );
+		}
+		{
+			SDL_Surface* const s= notes_descriptions_glyphs_[x][y][1];
+			SDL_Rect src_rect{ 0, 0, s->w, s->h };
+			SDL_Rect dst_rect{ int( r_x + ( plate_width - s->w ) / 2 ), int( r_y + plate_height - src_rect.h ), s->w, s->h };
+			SDL_UpperBlit( s, &src_rect, surface_, &dst_rect );
+		}
 	}
 }
 
@@ -269,7 +331,6 @@ void MainLoop()
 	while(true)
 	{
 		// Draw
-
 		if( SDL_MUSTLOCK( surface_ ) )
 			SDL_LockSurface( surface_ );
 
@@ -291,7 +352,6 @@ void MainLoop()
 				if( event.window.event == SDL_WINDOWEVENT_CLOSE )
 					return;
 				break;
-
 
 			case SDL_KEYUP:
 			case SDL_KEYDOWN:
@@ -366,9 +426,11 @@ extern "C" int main( int argc, char *argv[] )
 
 	InitWindow();
 	InitAudio();
+	InitFont();
 
 	MainLoop();
 
+	DeInitFont();
 	DeInitAudio();
 	DeInitWindow();
 

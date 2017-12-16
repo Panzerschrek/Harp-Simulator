@@ -10,21 +10,28 @@ if( WIN32 )
 	set( SDL_INCLUDES_DIR ${SDL_BASE_DIR}/include )
 	set( SDL_LIBS_DIR ${SDL_BASE_DIR}/lib/x86 )
 	get_filename_component( SDL_LIBS_DIR_ABSOLUTE ${SDL_LIBS_DIR} ABSOLUTE )
+
+	set( SDL_TTF_BASE_DIR ../SDL2_ttf-2.0.14 )
+	set( SDL_TTF_INCLUDES_DIR ${SDL_TTF_BASE_DIR}/include )
+	set( SDL_TTF_LIBS_DIR ${SDL_TTF_BASE_DIR}/lib/x86 )
+	get_filename_component( SDL_TTF_LIBS_DIR_ABSOLUTE ${SDL_TTF_LIBS_DIR} ABSOLUTE )
 else()
 	set( SDL_INCLUDES_DIR /usr/include/SDL2 )
+
+	# TODO - set path to SDL_ttf for gnu/linux
 endif()
 
 include_directories( ${SDL_INCLUDES_DIR} )
+include_directories( ${SDL_TTF_INCLUDES_DIR} )
 
-set( SOURCES
-	main.cpp )
 
-add_executable( HarpSimulator ${SOURCES} )
+add_executable( HarpSimulator main.cpp )
 
 if( WIN32 )
 	target_link_libraries( HarpSimulator ${SDL_LIBS_DIR_ABSOLUTE}/SDL2main.lib )
 	target_link_libraries( HarpSimulator ${SDL_LIBS_DIR_ABSOLUTE}/SDL2.lib )
+	target_link_libraries( HarpSimulator ${SDL_TTF_LIBS_DIR_ABSOLUTE}/SDL2_ttf.lib )
 else()
-	target_link_libraries( HarpSimulator GL )
 	target_link_libraries( HarpSimulator SDL2 )
+	target_link_libraries( HarpSimulator ${SDL_TTF_LIBS_DIR_ABSOLUTE}/SDL2_ttf )
 endif()
