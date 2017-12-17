@@ -69,8 +69,7 @@ const char* const c_note_key_name_table[c_harp_apertures_count][c_harp_aprture_m
 	{"10", "P" },
 };
 
-// Font
-TTF_Font* font_= nullptr;
+// Text surfaces
 SDL_Surface* notes_descriptions_glyphs_[c_harp_apertures_count][c_harp_aprture_modes_count][2u];
 
 // Notes
@@ -261,15 +260,17 @@ void InitFont()
 {
 	TTF_Init();
 
-	font_= TTF_OpenFont( "arial.ttf", 20 );
+	TTF_Font* const font= TTF_OpenFont( "arial.ttf", 20 );
 
 	for( int y= 0; y < c_harp_aprture_modes_count; ++y )
 	for( int x= 0; x < c_harp_apertures_count; ++x )
 	{
 		SDL_Color color{ c_note_name_color[0], c_note_name_color[1], c_note_name_color[2] };
-		notes_descriptions_glyphs_[x][y][0]= TTF_RenderText_Solid( font_, c_note_name_table[x][y], color );
-		notes_descriptions_glyphs_[x][y][1]= TTF_RenderText_Solid( font_, c_note_key_name_table[x][y], color );
+		notes_descriptions_glyphs_[x][y][0]= TTF_RenderText_Solid( font, c_note_name_table[x][y], color );
+		notes_descriptions_glyphs_[x][y][1]= TTF_RenderText_Solid( font, c_note_key_name_table[x][y], color );
 	}
+
+	TTF_CloseFont( font );
 }
 
 void DeInitFont()
