@@ -260,7 +260,7 @@ void InitFont()
 {
 	TTF_Init();
 
-	TTF_Font* const font= TTF_OpenFont( "arial.ttf", 20 );
+	TTF_Font* const font= TTF_OpenFont( "DejaVuSans.ttf", 20 );
 
 	for( int y= 0; y < c_harp_aprture_modes_count; ++y )
 	for( int x= 0; x < c_harp_apertures_count; ++x )
