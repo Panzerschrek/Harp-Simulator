@@ -15,6 +15,7 @@ namespace
 
 // Constants
 const SDL_AudioDeviceID g_first_valid_device_id= 2u;
+const unsigned int g_max_metro_rate= 256;
 
 // Audio
 SDL_AudioDeviceID device_id_= 0u;
@@ -89,8 +90,11 @@ bool note_state_table[c_harp_apertures_count][c_harp_aprture_modes_count]=
 
 typedef std::vector<int16_t> NoteData;
 NoteData notes_data_[c_harp_apertures_count][c_harp_aprture_modes_count];
+NoteData metro_data_;
 uint64_t sample_pos_= 0u;
 std::atomic<float> volume_{ 1.0f };
+std::atomic<unsigned int> tempo_{ 120u };
+std::atomic<bool> metro_on_{ false };
 
 } // namespace
 
@@ -128,6 +132,19 @@ void GenNote( unsigned int note_number, NoteData& out_note_data )
 	}
 }
 
+void GenMetro()
+{
+	const float metro_imp_size_s= 0.05f; // must be less, than 60 / max_tempo
+	const unsigned int metro_imps= static_cast<unsigned int>( metro_imp_size_s * float(c_sample_rate) );
+	metro_data_.resize( metro_imps );
+	for( unsigned int i= 0u; i < metro_imps; ++i )
+	{
+		const float x= float(i) / float(metro_imps);
+		const float a= std::exp(-x * 8.0f) * std::sin(x * ( 3.1415926535f * 2.0f * 20.0f ) );
+		metro_data_[i]= static_cast<int16_t>( a * 32766.0f );
+	}
+}
+
 void AudioCallback( void* /*userdata*/, Uint8* stream, int len_bytes )
 {
 	int16_t* const out_data= reinterpret_cast<int16_t*>(stream);
@@ -159,6 +176,19 @@ void AudioCallback( void* /*userdata*/, Uint8* stream, int len_bytes )
 		}
 	}
 
+	// Mix metronome.
+	if( metro_on_.load() )
+	{
+		const unsigned int metro_rate= c_sample_rate * 60 / tempo_.load();
+		const unsigned int metro_pos= static_cast<unsigned int>( sample_pos_ % metro_rate );
+		for( unsigned int i= 0; i < sample_count; ++i )
+		{
+			unsigned int j= ( metro_pos + i ) % metro_rate;
+			if( j < metro_data_.size() )
+				mix_buffer_[i]+= ( metro_data_[j] * volume_f ) >> fixed_bits;
+		}
+	}
+
 	sample_pos_+= sample_count;
 
 	// Blit mix buffer into dst with saturation.
@@ -171,6 +201,8 @@ void InitAudio()
 	for( int y= 0; y < c_harp_aprture_modes_count; ++y )
 	for( int x= 0; x < c_harp_apertures_count; ++x )
 		GenNote( y + x * c_harp_aprture_modes_count, notes_data_[x][y] );
+
+	GenMetro();
 
 	SDL_AudioSpec requested_format;
 	SDL_AudioSpec obtained_format;
@@ -354,7 +386,6 @@ void MainLoop()
 					return;
 				break;
 
-			case SDL_KEYUP:
 			case SDL_KEYDOWN:
 				if( event.key.keysym.sym == SDLK_MINUS ||
 					event.key.keysym.sym == SDLK_EQUALS )
@@ -363,6 +394,21 @@ void MainLoop()
 					volume+= ( event.key.keysym.sym == SDLK_PLUS ? 1.0f : -1.0f ) / 16.0f;
 					volume= std::max( 0.0f, std::min( volume, 1.0f ) );
 					volume_.store( volume );
+				}
+				else if( event.key.keysym.sym == SDLK_LEFTBRACKET ||
+						event.key.keysym.sym == SDLK_RIGHTBRACKET )
+				{
+					unsigned int tempo= tempo_.load();
+					if( event.key.keysym.sym == SDLK_RIGHTBRACKET )
+						tempo= std::min( tempo + 1, g_max_metro_rate );
+					else if( tempo > 24 )
+						--tempo;
+
+					tempo_.store(tempo);
+				}
+				else if( event.key.keysym.sym == SDLK_m )
+				{
+					metro_on_.store( !metro_on_.load() );
 				}
 				break;
 
@@ -414,9 +460,16 @@ void MainLoop()
 		}
 		SDL_UnlockAudioDevice( device_id_ );
 
-		// Write volume to window caption
-		char window_caption[128];
-		std::snprintf( window_caption, sizeof(window_caption), "harp simulator %2.1f%%", 100.0f * volume_.load() );
+		// Write params to window caption.
+		char window_caption[256];
+		std::snprintf(
+			window_caption,
+			sizeof(window_caption),
+			"harp simulator. vol %2.1f%% metro %s temp %u",
+			100.0f * volume_.load(),
+			metro_on_.load() ? "on" : "off" ,
+			tempo_.load() );
+
 		SDL_SetWindowTitle( window_, window_caption );
 	}
 }
