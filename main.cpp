@@ -387,26 +387,26 @@ void MainLoop()
 				break;
 
 			case SDL_KEYDOWN:
-				if( event.key.keysym.sym == SDLK_MINUS ||
-					event.key.keysym.sym == SDLK_EQUALS )
+				if( event.key.keysym.scancode == SDL_SCANCODE_MINUS ||
+					event.key.keysym.scancode == SDL_SCANCODE_EQUALS )
 				{
 					float volume= volume_.load();
-					volume+= ( event.key.keysym.sym == SDLK_PLUS ? 1.0f : -1.0f ) / 16.0f;
+					volume+= ( event.key.keysym.scancode == SDL_SCANCODE_EQUALS ? 1.0f : -1.0f ) / 16.0f;
 					volume= std::max( 0.0f, std::min( volume, 1.0f ) );
 					volume_.store( volume );
 				}
-				else if( event.key.keysym.sym == SDLK_LEFTBRACKET ||
-						event.key.keysym.sym == SDLK_RIGHTBRACKET )
+				else if( event.key.keysym.scancode == SDL_SCANCODE_LEFTBRACKET ||
+						event.key.keysym.scancode == SDL_SCANCODE_RIGHTBRACKET )
 				{
 					unsigned int tempo= tempo_.load();
-					if( event.key.keysym.sym == SDLK_RIGHTBRACKET )
+					if( event.key.keysym.scancode == SDL_SCANCODE_RIGHTBRACKET )
 						tempo= std::min( tempo + 1, g_max_metro_rate );
 					else if( tempo > 24 )
 						--tempo;
 
 					tempo_.store(tempo);
 				}
-				else if( event.key.keysym.sym == SDLK_m )
+				else if( event.key.keysym.scancode == SDL_SCANCODE_M )
 				{
 					metro_on_.store( !metro_on_.load() );
 				}
