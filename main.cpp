@@ -29,14 +29,14 @@ SDL_Window* window_= nullptr;
 SDL_Surface* surface_= nullptr;
 
 // View
-const unsigned int c_window_width= 400;
-const unsigned int c_window_height= 144;
+const unsigned int c_window_width= 394;
+const unsigned int c_window_height= 134;
 
 const unsigned int c_harp_apertures_count= 10;
 const unsigned int c_harp_aprture_modes_count= 2;
 
-const unsigned int c_edge_border_size= 8;
-const unsigned int c_inner_border_size= 4;
+const unsigned int c_edge_border_size= 2;
+const unsigned int c_inner_border_size= 3;
 
 const unsigned char c_background_color[]= { 32, 32, 32 };
 const unsigned char c_inactive_aperture_color[]= { 200, 190, 170 };
@@ -322,9 +322,6 @@ void Draw()
 	const SDL_Rect bg_rect{ 0, 0, surface_->w, surface_->h };
 	SDL_FillRect( surface_, &bg_rect, SDL_MapRGB( surface_->format, c_background_color[0], c_background_color[1], c_background_color[2] ) );
 
-	const unsigned int c_edge_border_size= 8;
-	const unsigned int c_inner_border_size= 2;
-
 	unsigned int window_width=  surface_->w;
 	unsigned int window_height= surface_->h;
 
@@ -332,14 +329,14 @@ void Draw()
 		(window_width - c_edge_border_size*2 - 2 * c_harp_apertures_count * c_inner_border_size )
 		/ c_harp_apertures_count;
 	unsigned int plate_height=
-		(window_height - c_edge_border_size*2 - (c_harp_aprture_modes_count-1) * c_inner_border_size )
+		(window_height - c_edge_border_size*2 - 2 * c_harp_aprture_modes_count * c_inner_border_size )
 		/ c_harp_aprture_modes_count;
 
 	for( unsigned int x= 0; x< c_harp_apertures_count; x++ )
 	for( unsigned int y= 0 ;y< c_harp_aprture_modes_count; y++ )
 	{
-		unsigned int r_x= c_edge_border_size + (plate_width + c_inner_border_size * 2) * x;
-		unsigned int r_y= c_edge_border_size + (plate_height + c_inner_border_size * 2) * y;
+		unsigned int r_x= c_inner_border_size + c_edge_border_size + (plate_width  + c_inner_border_size * 2) * x;
+		unsigned int r_y= c_inner_border_size + c_edge_border_size + (plate_height + c_inner_border_size * 2) * y;
 
 		const unsigned char* const color= note_state_table[x][y] ? c_active_aperture_color : c_inactive_aperture_color;
 		SDL_Rect rect{ int(r_x), int(r_y), int(plate_width), int(plate_height) };
