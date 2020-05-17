@@ -299,8 +299,8 @@ void InitFont()
 	for( int x= 0; x < c_harp_apertures_count; ++x )
 	{
 		SDL_Color color{ c_note_name_color[0], c_note_name_color[1], c_note_name_color[2] };
-		notes_descriptions_glyphs_[x][y][0]= TTF_RenderText_Solid( font, c_note_name_table[x][y], color );
-		notes_descriptions_glyphs_[x][y][1]= TTF_RenderText_Solid( font, c_note_key_name_table[x][y], color );
+		notes_descriptions_glyphs_[x][y][0]= TTF_RenderText_Blended( font, c_note_name_table[x][y], color );
+		notes_descriptions_glyphs_[x][y][1]= TTF_RenderText_Blended( font, c_note_key_name_table[x][y], color );
 	}
 
 	TTF_CloseFont( font );

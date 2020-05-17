@@ -4,6 +4,8 @@ project( HarpSimulator )
 
 set( CMAKE_CXX_STANDARD 11 )
 
+include( FindSDL_ttf )
+
 # Set path to your SDL2 here.
 if( WIN32 )
 	set( SDL_BASE_DIR ../SDL2-2.0.3 )
